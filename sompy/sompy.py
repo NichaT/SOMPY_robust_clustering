@@ -20,13 +20,14 @@ from multiprocessing.dummy import Pool
 from multiprocessing import cpu_count
 from scipy.sparse import csr_matrix
 from sklearn import neighbors
-from sklearn.externals.joblib import Parallel, delayed, load, dump
+from joblib import Parallel, delayed, load, dump
 import sys
 
 from .decorators import timeit
 from .codebook import Codebook
 from .neighborhood import NeighborhoodFactory
 from .normalization import NormalizatorFactory
+import matplotlib as plt
 
 #lbugnon
 #import ipdb
@@ -538,13 +539,15 @@ class SOM(object):
 
         return out.astype(int)
 
-    def cluster(self, n_clusters=8, opt = 0):
+    def cluster(self, n_clusters=8, opt = 0,treshold = 1500,sampless = 5):
         import sklearn.cluster as clust
+        n_clusters = n_clusters + 2
+        print(n_clusters)
 
         print("Performing K-means SSE elbow sweep...")
 
         # generate the bootstrap samples
-        BTS = 20
+        BTS = sampless
         BTS_SIZE = 0.8
 
         normalized_data = self._normalizer.denormalize_by(self.data_raw,
@@ -579,14 +582,23 @@ class SOM(object):
                 SSE_BTS_K.append(np.sum(SSE_K) / float(BTS))
 
 
-
             # find the index of the maximum value of the 1st difference and add 1 to get the optimal K
             first_diff = np.diff(SSE_BTS_K)
+            
+            #Find k to use, can always be changed with Silhoutte method (Nicha)
+            k_opt = 0
+            for i in range(len(first_diff)-1):
+                if abs(first_diff[i]) < abs(first_diff[i+1])+treshold:
+                    k_opt = i+1
+                    break
+
+            
             print("SSE for k = 2 to " + str(n_clusters) + " " + str(SSE_BTS_K))
             index = np.argmax(first_diff) + 1
 
-            print("Optimal K = " + str(index))
-
+            print("Optimal K = " + str(k_opt+2))
+            
+            
         else:
             index = opt
 
@@ -598,7 +610,8 @@ class SOM(object):
             print("Centroid " + str(i) + str(km.cluster_centers_[i]))
 
         self.cluster_labels = km.labels_
-        return km.labels_, km, normalized_data
+        
+        return km.labels_, km, normalized_data,SSE_BTS_K,k_opt
 
     def predict_probability(self, data, target, k=5):
         """
