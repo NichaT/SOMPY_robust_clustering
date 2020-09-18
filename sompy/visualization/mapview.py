@@ -61,7 +61,7 @@ class MapView(MatplotView):
 
 class View2D(MapView):
 
-    def show(self, som, what='codebook', which_dim='all', cmap=None,
+    def show(self, som, labels = "None" ,what='codebook', which_dim='all', cmap="jet",
              col_sz=None, desnormalize=False):
         (self.width, self.height, indtoshow, no_row_in_plot, no_col_in_plot,
          axis_num) = self._calculate_figure_params(som, which_dim, col_sz)
@@ -79,7 +79,6 @@ class View2D(MapView):
         elif type(which_dim) == list:
             names = som._component_names[0][which_dim]
 
-
         while axis_num < len(indtoshow):
             axis_num += 1
             ax = plt.subplot(no_row_in_plot, no_col_in_plot, axis_num)
@@ -93,10 +92,52 @@ class View2D(MapView):
                 max(codebook[:, ind].flatten())
             norm = matplotlib.colors.Normalize(vmin=min_color_scale, vmax=max_color_scale, clip=True)
 
+                
             mp = codebook[:, ind].reshape(som.codebook.mapsize[0],
                                           som.codebook.mapsize[1])
-            pl = plt.pcolor(mp[::-1], norm=norm)
+
+            pl = plt.pcolor(mp[::-1], norm=norm,cmap=cmap)
+                
+            
+            if labels != "None":
+                
+                blackline = np.zeros(som.codebook.mapsize[0]*som.codebook.mapsize[1])
+                for i in range(som.codebook.mapsize[0]*som.codebook.mapsize[1]-1):
+            
+                    if labels[i] != labels[i+1]:
+                        blackline[i]+= 1
+            
+                    for j in range(som.codebook.mapsize[0]):
+                        if blackline[som.codebook.mapsize[1]*j-1] == 1:
+                            blackline[som.codebook.mapsize[1]*j-1] -= 1 
+                  
+                for j in range(som.codebook.mapsize[1]-1):            
+                    for i in range(som.codebook.mapsize[0]-1):         
+                        # print((i*som.codebook.mapsize[1])+j)
+                        # print(((i+1)*som.codebook.mapsize[1])+j)
+                        
+                        if labels[(i*som.codebook.mapsize[1])+j] != labels[(((i+1)*som.codebook.mapsize[1])+j)]:
+                            blackline[(((i+1)*som.codebook.mapsize[1])+j)]+= 1
+                    
+                for i in range(len(blackline)):
+                    if blackline[i]>1:
+                        blackline[i] -= 1                
+                
+                
+                mp1 = blackline.reshape(som.codebook.mapsize[0],som.codebook.mapsize[1])
+                
+                c_white = matplotlib.colors.colorConverter.to_rgba('white',alpha = 0)
+                c_black= matplotlib.colors.colorConverter.to_rgba('black',alpha = 1)
+                cmap_rb = matplotlib.colors.LinearSegmentedColormap.from_list('rb_cmap',[c_white,c_black],512)
+                
+
+                
+                pl = plt.pcolor(mp1[::-1],cmap=cmap_rb)
+
+            
             plt.axis([0, som.codebook.mapsize[1], 0, som.codebook.mapsize[0]])
+            
+            
             plt.title(names[axis_num - 1])
             ax.set_yticklabels([])
             ax.set_xticklabels([])
